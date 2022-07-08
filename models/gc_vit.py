@@ -220,9 +220,7 @@ class WindowAttentionGlobal(nn.Module):
 
         kv = self.qkv(x).reshape(B_, N, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         k, v = kv[0], kv[1]
-        q_global = q_global.reshape(B, 1, N, self.num_heads, C // self.num_heads).permute(0, 1, 3, 2, 4)
-        q = q_global.repeat(1, B_//B, 1, 1, 1).reshape(B_, self.num_heads, N, C // self.num_heads)
-        q = q * self.scale
+        q = q_global * self.scale
         attn = (q @ k.transpose(-2, -1))
 
         relative_position_bias = self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
@@ -379,7 +377,14 @@ class GCViTLayer(nn.Module):
         self.resolution = input_resolution
 
     def forward(self, x):
-        q_global = self.to_q_global(x.permute(0, 3, 1, 2)).permute(0, 2, 3, 1)
+        B, H, W, C = x.shape
+        square_window = self.window_size ** 2
+        num_windows = int(H * W / square_window)
+
+        q_global = self.to_q_global(x.permute(0, 3, 1, 2))
+        q_global = q_global.reshape(B, 1, self.num_heads, C // self.num_heads, square_window).permute(0, 1, 2, 4, 3)
+        q_global = q_global.repeat(1, num_windows, 1, 1, 1).reshape(B * num_windows, self.num_heads, square_window, C // self.num_heads)
+
         for blk in self.blocks:
             x = blk(x, q_global)
         if self.downsample is None:
