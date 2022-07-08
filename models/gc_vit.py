@@ -73,7 +73,6 @@ class ReduceSize(nn.Module):
         self.norm1 = norm_layer(dim)
 
     def forward(self, x):
-        x = x.contiguous()
         x = self.norm1(x)
         x = x.permute(0, 3, 1, 2)
         x = x + self.conv(x)
@@ -109,7 +108,6 @@ class FeatExtract(nn.Module):
         self.keep_dim = keep_dim
 
     def forward(self, x):
-        x = x.contiguous()
         x = x + self.conv(x)
         if not self.keep_dim:
             x = self.pool(x)
